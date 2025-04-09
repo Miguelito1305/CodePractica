@@ -1,17 +1,33 @@
 import React, { useState } from 'react';
-import { Code2, Brain, Trophy, Users, ArrowLeft, Mail, Lock, LogIn } from 'lucide-react';
+import { Code2, Brain, Trophy, Users, ArrowLeft, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
 import Editor from '@monaco-editor/react';
+import { auth } from './firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
-// Componente de Login
-function LoginPage({ onLogin }: { onLogin: () => void }) {
+// Componente de Login/Registro
+function AuthPage({ onLogin }: { onLogin: () => void }) {
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Aquí normalmente validarías las credenciales
-    if (email && password) {
+    setError('');
+    setLoading(true);
+
+    try {
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, email, password);
+      } else {
+        await createUserWithEmailAndPassword(auth, email, password);
+      }
       onLogin();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Un error ocurrió durante la autenticación');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -24,9 +40,16 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
           </div>
           <h2 className="mt-6 text-3xl font-extrabold text-gray-900">CodePráctica</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Inicia sesión para acceder a los problemas de programación
+            {isLogin ? 'Inicia sesión para acceder' : 'Regístrate para comenzar'}
           </p>
         </div>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+            {error}
+          </div>
+        )}
+
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm space-y-4">
             <div>
@@ -67,15 +90,30 @@ function LoginPage({ onLogin }: { onLogin: () => void }) {
             </div>
           </div>
 
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              className="text-sm text-orange-600 hover:text-orange-500"
+              onClick={() => setIsLogin(!isLogin)}
+            >
+              {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
+            </button>
+          </div>
+
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-500 hover:bg-orange-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50"
             >
               <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                <LogIn className="h-5 w-5 text-orange-300 group-hover:text-orange-400" />
+                {isLogin ? (
+                  <LogIn className="h-5 w-5 text-orange-300 group-hover:text-orange-400" />
+                ) : (
+                  <UserPlus className="h-5 w-5 text-orange-300 group-hover:text-orange-400" />
+                )}
               </span>
-              Iniciar Sesión
+              {loading ? 'Procesando...' : (isLogin ? 'Iniciar Sesión' : 'Registrarse')}
             </button>
           </div>
         </form>
@@ -140,7 +178,7 @@ function App() {
   const [codigo, setCodigo] = useState('');
 
   if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
+    return <AuthPage onLogin={() => setIsLoggedIn(true)} />;
   }
 
   const problema = problemaSeleccionado !== null ? problemas[problemaSeleccionado] : null;
